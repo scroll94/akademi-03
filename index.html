@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>OPS/9 — Tactical Arena</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- 3D canvas mount point -->
+  <canvas id="scene"></canvas>
+
+  <!-- ============ HUD (visible only during play) ============ -->
+  <div id="hud" class="hidden">
+
+    <!-- corner scope brackets, the signature frame -->
+    <div class="scope-frame">
+      <span class="bracket tl"></span>
+      <span class="bracket tr"></span>
+      <span class="bracket bl"></span>
+      <span class="bracket br"></span>
+      <div class="tick-row top"></div>
+      <div class="tick-row bottom"></div>
+    </div>
+
+    <div id="crosshair">
+      <span class="c-line c-top"></span>
+      <span class="c-line c-bottom"></span>
+      <span class="c-line c-left"></span>
+      <span class="c-line c-right"></span>
+      <span class="c-dot"></span>
+    </div>
+
+    <div id="hitmarker"></div>
+    <div id="dmg-flash"></div>
+
+    <div id="killfeed"></div>
+
+    <div class="hud-top">
+      <div class="hud-chip timer">
+        <span class="chip-label">TIME</span>
+        <span id="hud-time" class="chip-value">00:00</span>
+      </div>
+      <div class="hud-chip score">
+        <span class="chip-label">SCORE</span>
+        <span id="hud-score" class="chip-value">0</span>
+      </div>
+      <div class="hud-chip kills">
+        <span class="chip-label">ELIMS</span>
+        <span id="hud-kills" class="chip-value">0</span>
+      </div>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="panel health-panel">
+        <span class="panel-label">ARMOR&nbsp;INTEGRITY</span>
+        <div class="bar-track">
+          <div id="health-bar" class="bar-fill"></div>
+        </div>
+        <span id="health-num" class="panel-num">100</span>
+      </div>
+
+      <div class="panel ammo-panel">
+        <span class="panel-label" id="ammo-status">M4 // TACTICAL</span>
+        <div class="ammo-numbers">
+          <span id="ammo-current">12</span>
+          <span class="ammo-sep">/</span>
+          <span id="ammo-reserve">48</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ START MENU ============ -->
+  <div id="menu-start" class="overlay">
+    <div class="overlay-inner">
+      <div class="eyebrow">БРАУЗЕРНЫЙ ТАКТИЧЕСКИЙ ШУТЕР</div>
+      <h1>OPS<span class="accent">/</span>9</h1>
+      <p class="lede">Зачистите арену. Волны противников не заканчиваются — держитесь как можно дольше и набирайте очки.</p>
+
+      <div class="controls-grid">
+        <div class="ctrl"><span class="key">W A S D</span><span class="desc">Движение</span></div>
+        <div class="ctrl"><span class="key">МЫШЬ</span><span class="desc">Обзор</span></div>
+        <div class="ctrl"><span class="key">ЛКМ</span><span class="desc">Стрельба</span></div>
+        <div class="ctrl"><span class="key">R</span><span class="desc">Перезарядка</span></div>
+        <div class="ctrl"><span class="key">SHIFT</span><span class="desc">Бег</span></div>
+        <div class="ctrl"><span class="key">ПРОБЕЛ</span><span class="desc">Прыжок</span></div>
+        <div class="ctrl"><span class="key">ESC</span><span class="desc">Пауза</span></div>
+      </div>
+
+      <button id="btn-start" class="btn-primary">НАЧАТЬ ОПЕРАЦИЮ</button>
+      <div class="loading-note" id="loading-note">Загрузка движка…</div>
+    </div>
+  </div>
+
+  <!-- ============ PAUSE MENU ============ -->
+  <div id="menu-pause" class="overlay hidden">
+    <div class="overlay-inner">
+      <div class="eyebrow">ПАУЗА</div>
+      <h1>ПЕРЕРЫВ</h1>
+      <button id="btn-resume" class="btn-primary">ПРОДОЛЖИТЬ</button>
+    </div>
+  </div>
+
+  <!-- ============ GAME OVER MENU ============ -->
+  <div id="menu-over" class="overlay hidden">
+    <div class="overlay-inner">
+      <div class="eyebrow">ОПЕРАЦИЯ ОКОНЧЕНА</div>
+      <h1>ВЫ ВЫБЫЛИ</h1>
+      <div class="stats-grid">
+        <div class="stat"><span id="final-score" class="stat-num">0</span><span class="stat-label">Очки</span></div>
+        <div class="stat"><span id="final-kills" class="stat-num">0</span><span class="stat-label">Устранено</span></div>
+        <div class="stat"><span id="final-time" class="stat-num">00:00</span><span class="stat-label">Продержались</span></div>
+      </div>
+      <button id="btn-restart" class="btn-primary">НОВАЯ ПОПЫТКА</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
