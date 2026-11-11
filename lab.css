@@ -1,0 +1,110 @@
+/* Мини-уроки: тёмный «экран» на светлой странице. Палитра экрана задана здесь же. */
+.lab-box { --night: #15131f; --night-2: #1e1b2e; --night-3: #2a2640; --milk: #f3efe6; --muted: #a9a5bd; --gold: #c9f73f; --gold-soft: #e2ff8a; --sky: #45c8ff; --felt: #ff5a36; --ok: #7fe3ad; --font-display: var(--font-head); --ease-out: var(--ease);
+  margin-top: 2.4rem; padding: clamp(12px, 2vw, 20px); border: var(--line); border-radius: 26px; background: #15131f; color: #f3efe6; box-shadow: 8px 8px 0 var(--ink); }
+:root[data-theme="dark"] .lab-box { box-shadow: 8px 8px 0 var(--accent); }
+.lab-box .btn { border-color: #f3efe6; box-shadow: 3px 3px 0 rgb(243 239 230 / .35); }
+.lab-box .btn-lime { background: #c9f73f; color: #15131f; border-color: #c9f73f; }
+.lab-box .btn-line { background: none; color: #f3efe6; }
+.lab-tabs { display: inline-flex; gap: 4px; max-width: 100%; padding: 4px; border-radius: 999px; background: color-mix(in srgb, var(--night-2) 85%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--milk) 12%, transparent); }
+.lab-tabs button { min-height: 44px; padding: 0 1.25rem; border: 0; border-radius: 999px; background: none; color: var(--muted); font: 600 .95rem/1 var(--font-body); white-space: nowrap; cursor: pointer; transition: background-color .25s, color .25s; }
+.lab-tabs button:hover { color: var(--milk); }
+.lab-tabs button[aria-selected="true"] { background: var(--accent); color: var(--night); }
+.lab-tabs button:focus-visible { outline: 2px solid var(--milk); outline-offset: 2px; }
+
+.lab-pane { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; margin-top: 14px; }
+.lab-ed, .lab-out { position: relative; min-width: 0; border-radius: 16px; background: var(--night); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--milk) 10%, transparent); overflow: hidden; }
+.lab-ed { display: flex; flex-direction: column; }
+.lab-top { display: flex; align-items: center; gap: 6px; margin: 0; padding: .6rem 1rem; background: color-mix(in srgb, var(--milk) 5%, transparent); color: var(--muted); font: 500 .8rem/1 var(--font-body); }
+.lab-top i { width: 9px; height: 9px; border-radius: 50%; background: #ff6b5e; }
+.lab-top i:nth-child(2) { background: #f6c34d; }
+.lab-top i:nth-child(3) { background: #45c46d; }
+.lab-top span { margin-left: 6px; }
+.lab-code { padding: .7rem 0 .5rem; overflow-x: auto; color: var(--milk); font: 500 .95rem/1.75 var(--mono); }
+.lab-line { display: flex; gap: 1rem; margin: 0; padding: 0 1rem; white-space: pre; }
+.lab-line .ln { flex: none; width: 1ch; color: color-mix(in srgb, var(--milk) 30%, transparent); user-select: none; }
+.k-s { color: #7fe3ad; }
+.k-f { color: var(--gold); }
+.k-k { color: color-mix(in srgb, var(--felt) 65%, var(--milk)); }
+.k-n { color: var(--sky); font-variant-numeric: tabular-nums; }
+.k-c { color: color-mix(in srgb, var(--milk) 42%, transparent); }
+/* поля прямо в коде; 16px, чтобы iPhone не увеличивал страницу при вводе */
+.lab-line input { width: 12ch; min-width: 0; padding: 0 .2rem; border: 0; border-bottom: 2px dashed var(--gold); border-radius: 0; background: color-mix(in srgb, var(--gold) 10%, transparent); color: #7fe3ad; font: inherit; font-size: max(16px, 1em); outline: none; caret-color: var(--gold); }
+.lab-line input:focus { background: color-mix(in srgb, var(--gold) 20%, transparent); border-bottom-style: solid; }
+.lab-hint { margin: auto 0 0; padding: .7rem 1rem .95rem; color: var(--muted); font-size: .86rem; line-height: 1.45; }
+.lab-hint b { color: var(--milk); font: 600 .95em/1 var(--mono); white-space: nowrap; }
+
+.lab-formula { display: grid; gap: .35rem; margin: 0; padding: 1.1rem 1rem .5rem; color: var(--milk); font: 600 clamp(1.15rem, 2.1vw, 1.5rem)/1.2 var(--mono); }
+.lab-formula small { color: var(--muted); font: 500 .86rem/1.3 var(--font-body); }
+.lab-params { display: grid; gap: .1rem; padding: .3rem 1rem .5rem; }
+.lab-params label { display: grid; grid-template-columns: 5.4em minmax(0, 1fr) 2.8em; align-items: center; gap: .8rem; min-height: 44px; color: var(--muted); font-size: .9rem; }
+.lab-params label b { margin-right: .35rem; color: var(--accent); font: 700 1.05rem/1 var(--mono); }
+.lab-params output { text-align: right; color: var(--milk); font: 600 .95rem/1 var(--mono); font-variant-numeric: tabular-nums; }
+.lab-code--params { display: grid; gap: .1rem; overflow: visible; }
+.lab-param { display: grid; }
+.lab-param input { width: auto; margin: 0 1rem 0 calc(2rem + 1ch); }
+.lab input[type="range"] { -webkit-appearance: none; appearance: none; height: 32px; margin-block: 0; background: none; cursor: pointer; }
+.lab-params input[type="range"] { width: 100%; margin: 0; }
+.lab input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--milk) 20%, transparent); }
+.lab input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--milk) 20%, transparent); }
+.lab input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; margin-top: -9px; border: 0; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 22%, transparent); }
+.lab input[type="range"]::-moz-range-thumb { width: 22px; height: 22px; border: 0; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 22%, transparent); }
+.lab input[type="range"]:focus-visible { outline: 2px solid var(--milk); outline-offset: 2px; border-radius: 6px; }
+
+.lab-stage { min-height: 330px; background: linear-gradient(180deg, var(--night-2), var(--night) 78%); }
+.lab-stage canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+.lab-badge { position: absolute; left: 12px; top: 12px; padding: .42rem .75rem; border-radius: 999px; background: rgb(10 20 48 / .8); color: var(--milk); font: 600 .78rem/1 var(--font-body); pointer-events: none; }
+.lab-game canvas { touch-action: manipulation; cursor: pointer; }
+.gm-hud { position: absolute; left: 14px; top: 13px; display: flex; gap: 1.1rem; margin: 0; color: var(--muted); font: 700 .66rem/1 var(--font-display); letter-spacing: .14em; pointer-events: none; }
+.gm-hud b { margin-left: .3rem; color: var(--milk); font-variant-numeric: tabular-nums; }
+.gm-start { position: absolute; left: 50%; top: 46%; translate: -50% -50%; display: inline-flex; align-items: center; gap: .5rem; min-height: 52px; padding: 0 1.6rem 0 1.25rem; border: 0; border-radius: 999px; background: var(--accent); color: var(--night); font: 700 1rem/1 var(--font-display); cursor: pointer; box-shadow: 0 14px 36px -10px color-mix(in srgb, var(--accent) 85%, transparent); transition: transform .16s var(--ease-out); }
+.gm-start svg { width: 20px; height: 20px; }
+.gm-start:active { transform: scale(.96); }
+.gm-start:focus-visible { outline: 2px solid var(--milk); outline-offset: 3px; }
+.gm-tip { position: absolute; left: 12px; right: 12px; top: calc(46% + 38px); margin: 0; text-align: center; color: var(--milk); font-size: .84rem; line-height: 1.35; text-shadow: 0 1px 8px var(--night); pointer-events: none; transition: opacity .3s; }
+.lab-game.is-run .gm-tip { opacity: 0; }
+
+.lab-chat { display: flex; flex-direction: column; min-height: 330px; }
+.chat-head { display: flex; align-items: center; gap: .7rem; margin: 0; padding: .65rem 1rem; border-bottom: 1px solid color-mix(in srgb, var(--milk) 10%, transparent); }
+.chat-ava { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--night); font: 700 .9rem/1 var(--font-display); }
+.chat-head span { display: grid; gap: .22rem; min-width: 0; }
+.chat-head span b { overflow: hidden; color: var(--milk); font: 600 .95rem/1.15 var(--font-body); text-overflow: ellipsis; white-space: nowrap; }
+.chat-head small { color: var(--ok); font-size: .74rem; line-height: 1; }
+.chat-log { flex: 1 1 0; display: flex; flex-direction: column; gap: .45rem; min-height: 150px; padding: .9rem 1rem; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--milk) 25%, transparent) transparent; }
+.chat-log:focus-visible { outline: 2px solid var(--sky); outline-offset: -2px; }
+.chat-msg { max-width: 86%; margin: 0; padding: .5rem .8rem; border-radius: 14px; font-size: .93rem; line-height: 1.4; overflow-wrap: anywhere; animation: chat-in .28s var(--ease-out); }
+.chat-msg.is-bot { align-self: flex-start; border-bottom-left-radius: 4px; background: color-mix(in srgb, var(--milk) 9%, var(--night)); }
+.chat-msg.is-me { align-self: flex-end; border-bottom-right-radius: 4px; background: color-mix(in srgb, var(--accent) 30%, var(--night)); }
+.chat-msg.is-typing { display: inline-flex; gap: 4px; padding: .72rem .8rem; }
+.chat-msg.is-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: chat-dot 1s infinite; }
+.chat-msg.is-typing i:nth-child(2) { animation-delay: .15s; }
+.chat-msg.is-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes chat-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes chat-dot { 50% { transform: translateY(-3px); opacity: .5; } }
+.chat-chips { display: flex; flex-wrap: wrap; gap: .4rem; padding: 0 1rem .65rem; }
+.chat-chips button { min-height: 36px; padding: 0 .85rem; border: 0; border-radius: 999px; background: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); color: color-mix(in srgb, var(--accent) 60%, var(--milk)); font: 500 .86rem/1 var(--font-body); cursor: pointer; transition: background-color .2s, color .2s; }
+.chat-chips button:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--milk); }
+.chat-form { display: flex; gap: .5rem; padding: .6rem; border-top: 1px solid color-mix(in srgb, var(--milk) 10%, transparent); }
+.chat-form input { flex: 1; min-width: 0; min-height: 44px; padding: 0 1rem; border: 1px solid color-mix(in srgb, var(--milk) 16%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--night-2) 70%, transparent); color: var(--milk); font: 400 16px var(--font-body); transition: border-color .25s, box-shadow .25s; }
+.chat-form input::placeholder { color: color-mix(in srgb, var(--muted) 70%, transparent); }
+.chat-form input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.chat-form button { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--accent); color: var(--night); cursor: pointer; transition: transform .16s var(--ease-out); }
+.chat-form button svg { width: 20px; height: 20px; }
+.chat-form button:active { transform: scale(.94); }
+
+.lab-foot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: .8rem 1rem; padding: .9rem 1rem .9rem 1.25rem; border-radius: 16px; background: color-mix(in srgb, var(--accent) 8%, var(--night)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent); }
+.lab-task { flex: 1 1 16rem; display: grid; gap: .3rem; margin: 0; color: var(--milk); font-size: .96rem; line-height: 1.4; }
+.lab-task b { color: var(--accent); font: 600 .66rem/1 var(--font-display); letter-spacing: .15em; text-transform: uppercase; }
+.lab-task.is-done b { color: var(--ok); }
+.lab-foot .btn { min-height: 46px; padding: 0 1.3rem; font-size: .95rem; }
+@media (max-width: 860px) {
+  .lab-pane { grid-template-columns: minmax(0, 1fr); }
+  /* на телефоне график и игра стоят над ползунками: видно, что меняется */
+  .lab-stage { order: -1; min-height: 0; height: clamp(210px, 36svh, 300px); }
+  .lab-tabs { display: flex; }
+  .lab-tabs button { flex: 1; padding: 0 .5rem; }
+  .lab-code { font-size: .86rem; }
+  .lab-chat { min-height: 0; }
+  .chat-log { flex: none; height: 190px; }
+  .lab-foot { padding: .9rem 1rem; }
+  .lab-foot .btn { flex: 1 1 100%; }
+}

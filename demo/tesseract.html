@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Тессеракт · Шаңырақ Code</title>
+<meta name="description" content="Тессеракт — четырёхмерный куб, который вращается в четырёх измерениях. Пример с курса «Математика».">
+<meta name="theme-color" content="#0a1430">
+<link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Onest:wght@400;600&display=swap">
+<style>
+  :root { color-scheme: dark; --night: #0a1430; --gold: #e8b64a; --sky: #3cc6dc; --felt: #e65f43; --milk: #f4ecdf; --muted: #a7b1d1; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #050a1c; color: var(--milk); font: 400 15px/1.45 "Onest", system-ui, sans-serif; }
+  canvas { position: fixed; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  .ui { position: fixed; left: 16px; right: 16px; top: 14px; z-index: 2; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 20px; pointer-events: none; }
+  .ui > * { pointer-events: auto; }
+  .intro { max-width: 33rem; padding: 12px 14px; border-radius: 14px; background: rgb(10 20 48 / .7); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .ui h1 { margin: 0; font: 800 clamp(20px, 3vw, 30px)/1.1 "Unbounded", sans-serif; }
+  .ui p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .facts span { padding: 4px 10px; border-radius: 999px; background: rgb(255 255 255 / .07); font-size: 13px; }
+  .facts b { color: var(--gold); }
+  .ctl { display: grid; gap: 8px; align-content: start; min-width: min(100%, 300px); padding: 12px 14px; border-radius: 14px; background: rgb(10 20 48 / .7); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .ctl label { display: grid; grid-template-columns: 8.2em minmax(0, 1fr); align-items: center; gap: 10px; font-weight: 600; font-size: 14px; }
+  .ctl label i { font-style: normal; color: var(--muted); font-weight: 400; }
+  .ctl input { width: 100%; accent-color: var(--gold); }
+  .ctl .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ctl button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: rgb(255 255 255 / .1); color: var(--milk); font: 600 14px/1 "Onest", sans-serif; cursor: pointer; transition: background-color 160ms, transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  .ctl button.main { background: var(--gold); color: #111; }
+  .ctl button:active { transform: scale(.97); }
+  button:focus-visible, input:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  .note { position: fixed; left: 16px; bottom: 14px; z-index: 2; max-width: min(36rem, calc(100% - 32px)); padding: 9px 13px; border-radius: 12px; background: rgb(10 20 48 / .72); color: var(--muted); font-size: 13px; pointer-events: none; }
+  .note b { color: var(--milk); }
+  .tag { position: fixed; right: 10px; bottom: 10px; z-index: 2; padding: 6px 10px; border-radius: 10px; background: rgb(10 20 48 / .78); font: 600 12.5px/1.2 Consolas, monospace; pointer-events: none; }
+  .tag span { color: var(--gold); }
+  body:not(.card) .tag { display: none; }
+  body.card .ui, body.card .note { display: none; }
+  body.card canvas { cursor: default; touch-action: pan-y; }
+  @media (max-width: 640px) {
+    .intro p { display: none; }
+    .ctl { position: fixed; left: 12px; right: 12px; bottom: 12px; min-width: 0; padding: 10px 12px; }
+    .note { display: none; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Тессеракт: четырёхмерный куб вращается, и его тень в трёх измерениях выворачивается наизнанку" role="img"></canvas>
+<div class="ui">
+  <div class="intro">
+    <h1>Тессеракт</h1>
+    <p>Квадрат — это отрезок, сдвинутый вбок. Куб — квадрат, сдвинутый вверх. Тессеракт — куб, сдвинутый в четвёртое измерение. Увидеть его целиком мы не можем, зато видим его тень в 3D: она выворачивается, когда он вращается в плоскостях с осью w.</p>
+    <div class="facts"><span><b>16</b> вершин</span><span><b>32</b> ребра</span><span><b>24</b> грани</span><span><b>8</b> кубов</span></div>
+  </div>
+  <div class="ctl">
+    <label>Плоскость XW <input id="xw" type="range" min="-100" max="100" value="40" aria-label="Скорость вращения в плоскости XW"></label>
+    <label>Плоскость YW <input id="yw" type="range" min="-100" max="100" value="0" aria-label="Скорость вращения в плоскости YW"></label>
+    <label>Плоскость ZW <input id="zw" type="range" min="-100" max="100" value="25" aria-label="Скорость вращения в плоскости ZW"></label>
+    <label>Плоскость XY <input id="xy" type="range" min="-100" max="100" value="10" aria-label="Скорость вращения в обычной плоскости XY"></label>
+    <div class="row">
+      <button type="button" class="main" id="pause" aria-pressed="false">Пауза</button>
+      <button type="button" id="faces" aria-pressed="true">Грани: вкл</button>
+      <button type="button" id="reset">Сначала</button>
+    </div>
+  </div>
+</div>
+<p class="note">Тяни, чтобы посмотреть с другой стороны. <b>Золотые</b> рёбра идут вдоль четвёртой оси w: они соединяют «внешний» и «внутренний» куб. На самом деле эти кубы одинаковые, просто один дальше по оси w.</p>
+<p class="tag">4D · <span>16</span> вершин · <span>32</span> ребра</p>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const card = new URLSearchParams(location.search).has('card');
+if (card) document.body.classList.add('card');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, card ? 1.5 : 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#050a1c');
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+camera.position.set(0.7, 1.0, 8.6);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.enablePan = false; controls.minDistance = 4; controls.maxDistance = 16;
+if (card) { controls.enabled = false; renderer.domElement.style.touchAction = 'pan-y'; }
+
+// ---------- тессеракт: 16 вершин (±1, ±1, ±1, ±1) ----------
+const V4 = [];
+for (let i = 0; i < 16; i++) V4.push([i & 1 ? 1 : -1, i & 2 ? 1 : -1, i & 4 ? 1 : -1, i & 8 ? 1 : -1]);
+// ребро соединяет вершины, отличающиеся одной координатой; запоминаем, вдоль какой оси
+const EDGES = [];
+for (let a = 0; a < 16; a++) for (let k = 0; k < 4; k++) { const b = a ^ (1 << k); if (a < b) EDGES.push([a, b, k]); }
+// грань — квадрат, где меняются две координаты из четырёх
+const FACES = [];
+for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) {
+  const fixed = [0, 1, 2, 3].filter(k => k !== i && k !== j);
+  for (let m = 0; m < 4; m++) {
+    const base = ((m & 1) << fixed[0]) | (((m >> 1) & 1) << fixed[1]);
+    FACES.push([base, base | (1 << i), base | (1 << i) | (1 << j), base | (1 << j), i === 3 || j === 3]);
+  }
+}
+
+// рёбра — светящиеся трубки; вдоль оси w — золотые, остальные бирюзовые и молочные
+const AXIS_COL = [new THREE.Color('#3cc6dc'), new THREE.Color('#8fe6f2'), new THREE.Color('#f4ecdf'), new THREE.Color('#f2b84b')];
+const edgeGeo = new THREE.CylinderGeometry(1, 1, 1, 10, 1, true);
+edgeGeo.translate(0, 0.5, 0); edgeGeo.rotateX(Math.PI / 2); // ось трубки по z, от 0 до 1
+const edgeMesh = new THREE.InstancedMesh(edgeGeo, new THREE.MeshBasicMaterial({ toneMapped: false }), EDGES.length);
+EDGES.forEach((e, i) => edgeMesh.setColorAt(i, AXIS_COL[e[2]].clone().multiplyScalar(e[2] === 3 ? 2.2 : 1.6)));
+scene.add(edgeMesh);
+const dotMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: new THREE.Color('#fff4d8').multiplyScalar(2.4), toneMapped: false }), 16);
+scene.add(dotMesh);
+// полупрозрачные грани: те, что «уходят» в четвёртое измерение, тёплые
+const faceGeo = new THREE.BufferGeometry();
+const facePos = new Float32Array(FACES.length * 6 * 3), faceCol = new Float32Array(FACES.length * 6 * 3);
+const warm = new THREE.Color('#e8b64a'), cool = new THREE.Color('#3cc6dc');
+FACES.forEach((f, i) => { const c = f[4] ? warm : cool; for (let k = 0; k < 6; k++) faceCol.set([c.r, c.g, c.b], (i * 6 + k) * 3); });
+faceGeo.setAttribute('position', new THREE.BufferAttribute(facePos, 3));
+faceGeo.setAttribute('color', new THREE.BufferAttribute(faceCol, 3));
+const faceMesh = new THREE.Mesh(faceGeo, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.045, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending }));
+scene.add(faceMesh);
+
+// звёздная пыль вокруг
+const dust = new THREE.BufferGeometry(), dp = [];
+for (let i = 0; i < 900; i++) { const r = 9 + Math.random() * 20, u = Math.random() * Math.PI * 2, v = Math.acos(Math.random() * 2 - 1); dp.push(r * Math.sin(v) * Math.cos(u), r * Math.cos(v), r * Math.sin(v) * Math.sin(u)); }
+dust.setAttribute('position', new THREE.Float32BufferAttribute(dp, 3));
+scene.add(new THREE.Points(dust, new THREE.PointsMaterial({ color: '#6f86c9', size: 0.05, transparent: true, opacity: 0.7 })));
+
+// свечение
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), card ? 0.45 : 0.7, 0.35, 0.82);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+// ---------- 4D-вращение и проекция ----------
+const ang = { xw: 0, yw: 0, zw: 0, xy: 0 };
+const speed = { xw: 0.4, yw: 0, zw: 0.25, xy: 0.1 };
+const rot = (v, i, j, a) => { const c = Math.cos(a), s = Math.sin(a), x = v[i], y = v[j]; v[i] = x * c - y * s; v[j] = x * s + y * c; };
+const P3 = Array.from({ length: 16 }, () => new THREE.Vector3());
+const W4 = new Float32Array(16);
+const project = () => {
+  V4.forEach((src, i) => {
+    const v = src.slice();
+    rot(v, 0, 1, ang.xy); rot(v, 0, 3, ang.xw); rot(v, 1, 3, ang.yw); rot(v, 2, 3, ang.zw);
+    // перспектива из четвёртого измерения: чем дальше по w, тем меньше
+    const k = 2.4 / (3.2 - v[3]);
+    P3[i].set(v[0] * k, v[1] * k, v[2] * k);
+    W4[i] = v[3];
+  });
+};
+const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), dir = new THREE.Vector3(), Z = new THREE.Vector3(0, 0, 1);
+const draw = () => {
+  project();
+  EDGES.forEach(([a, b], i) => {
+    dir.subVectors(P3[b], P3[a]);
+    const len = dir.length();
+    q.setFromUnitVectors(Z, dir.normalize());
+    // ближние по w рёбра толще: так глаз считывает глубину в четвёртом измерении
+    const r = 0.018 + 0.016 * ((W4[a] + W4[b]) * 0.25 + 0.5);
+    m4.compose(P3[a], q, sc.set(r, r, len));
+    edgeMesh.setMatrixAt(i, m4);
+  });
+  edgeMesh.instanceMatrix.needsUpdate = true;
+  P3.forEach((p, i) => { const r = 0.045 + 0.035 * (W4[i] * 0.5 + 0.5); dotMesh.setMatrixAt(i, m4.compose(p, q.identity(), sc.set(r, r, r))); });
+  dotMesh.instanceMatrix.needsUpdate = true;
+  FACES.forEach((f, i) => {
+    const [a, b, c, d] = f, o = i * 18;
+    [a, b, c, a, c, d].forEach((vi, k) => { facePos[o + k * 3] = P3[vi].x; facePos[o + k * 3 + 1] = P3[vi].y; facePos[o + k * 3 + 2] = P3[vi].z; });
+  });
+  faceGeo.attributes.position.needsUpdate = true;
+  faceGeo.computeBoundingSphere();
+  edgeMesh.computeBoundingSphere(); dotMesh.computeBoundingSphere();
+};
+
+// ---------- управление ----------
+let paused = false;
+if (!card) {
+  ['xw', 'yw', 'zw', 'xy'].forEach(k => { const el = document.getElementById(k); el.addEventListener('input', () => { speed[k] = el.value / 100; }); });
+  const pb = document.getElementById('pause');
+  pb.addEventListener('click', () => { paused = !paused; pb.textContent = paused ? 'Дальше' : 'Пауза'; pb.setAttribute('aria-pressed', String(paused)); });
+  const fb = document.getElementById('faces');
+  fb.addEventListener('click', () => { faceMesh.visible = !faceMesh.visible; fb.textContent = faceMesh.visible ? 'Грани: вкл' : 'Грани: выкл'; fb.setAttribute('aria-pressed', String(faceMesh.visible)); });
+  document.getElementById('reset').addEventListener('click', () => { Object.keys(ang).forEach(k => { ang[k] = 0; }); camera.position.set(0.7, 1.0, 8.6); controls.target.set(0, 0, 0); });
+}
+
+const resize = () => {
+  renderer.setSize(innerWidth, innerHeight, false);
+  composer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth / innerHeight;
+  // на узком экране отходим, чтобы тессеракт помещался по ширине
+  camera.fov = camera.aspect < 1 ? 40 / Math.max(0.55, camera.aspect) : (card ? 34 : 40);
+  camera.updateProjectionMatrix();
+};
+addEventListener('resize', resize); resize();
+let active = true;
+addEventListener('message', ev => { if (ev.data && typeof ev.data.active === 'boolean') active = ev.data.active; });
+let last = performance.now(), t = 0;
+renderer.setAnimationLoop(now => {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!active) return;
+  t += dt;
+  if (!paused && !reduce) {
+    if (card) { ang.xw += dt * 0.42; ang.zw += dt * 0.27; ang.yw = Math.sin(t * 0.2) * 0.5; ang.xy += dt * 0.08; }
+    else Object.keys(ang).forEach(k => { ang[k] += dt * speed[k]; });
+  } else if (reduce && t < 0.1) { ang.xw = 0.6; ang.zw = 0.4; }
+  if (card) { camera.position.set(Math.sin(t * 0.1) * 1.2, 0.6, 9.2); camera.lookAt(0, 0.25, 0); }
+  else controls.update();
+  draw();
+  composer.render();
+});
+</script>
+</body>
+</html>

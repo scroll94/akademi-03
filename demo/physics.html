@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Физика в браузере · Шаңырақ Code</title>
+<meta name="description" content="Песочница с настоящей физикой: сотни кирпичей падают, их можно хватать мышью и сбивать ядрами. Пример с курса «Создание игр».">
+<meta name="theme-color" content="#0a1430">
+<link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;800&family=Onest:wght@400;600&display=swap">
+<style>
+  :root { color-scheme: dark; --night: #0a1430; --gold: #e8b64a; --sky: #3cc6dc; --felt: #e65f43; --milk: #f4ecdf; --muted: #a7b1d1; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--night); color: var(--milk); font: 400 15px/1.45 "Onest", system-ui, sans-serif; }
+  canvas { position: fixed; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+  .ui { position: fixed; left: 16px; top: 14px; right: 16px; z-index: 2; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 12px; pointer-events: none; }
+  .ui h1 { margin: 0; font: 800 clamp(20px, 3vw, 30px)/1.1 "Unbounded", sans-serif; }
+  .ui p { margin: 6px 0 0; max-width: 32rem; color: var(--muted); font-size: 14px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; pointer-events: auto; }
+  .btns button { min-height: 44px; padding: 0 16px; border: 0; border-radius: 12px; background: rgb(255 255 255 / .1); color: var(--milk); font: 600 14px/1 "Onest", sans-serif; cursor: pointer; transition: transform 160ms cubic-bezier(.23, 1, .32, 1), background-color 160ms; }
+  .btns button.main { background: var(--gold); color: #111; }
+  .btns button:active { transform: scale(.97); }
+  .btns button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  .stat { position: fixed; left: 16px; bottom: 14px; z-index: 2; padding: 8px 12px; border-radius: 10px; background: rgb(0 0 0 / .4); color: var(--muted); font-size: 13px; pointer-events: none; }
+  .stat b { color: var(--gold); font-variant-numeric: tabular-nums; }
+  body.card .ui, body.card .stat { display: none; }
+  /* в карточке палец листает страницу вверх-вниз, а короткое нажатие бросает мяч */
+  body.card canvas { touch-action: pan-y; cursor: crosshair; }
+  .throw { position: fixed; left: 50%; top: 50%; z-index: 3; display: flex; align-items: center; gap: .55rem; padding: .8rem 1.25rem; border-radius: 999px; background: var(--gold); color: #111; font: 800 clamp(14px, 2.6vw, 18px)/1 "Unbounded", sans-serif; white-space: nowrap; box-shadow: 0 10px 30px rgb(0 0 0 / .4); pointer-events: none; transform: translate(-50%, -50%); transition: opacity .35s ease, transform .45s cubic-bezier(.23, 1, .32, 1); animation: nudge 1.8s ease-in-out infinite; }
+  .throw svg { width: 1.3em; height: 1.3em; flex: none; }
+  .throw.gone { opacity: 0; transform: translate(-50%, -30%) scale(.9); animation: none; }
+  @keyframes nudge { 50% { transform: translate(-50%, -50%) scale(1.06); } }
+  @media (prefers-reduced-motion: reduce) { .throw { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Физическая песочница: башни из кирпичей. Нажми, чтобы кинуть мяч" role="img"></canvas>
+<div class="ui">
+  <div>
+    <h1>Физика в браузере</h1>
+    <p>Каждый кирпич — отдельное тело с массой и трением. Тяни кирпич мышью или пальцем, нажми на пустое место, чтобы выстрелить ядром. Крути сцену, перетаскивая фон.</p>
+  </div>
+  <div class="btns">
+    <button class="main" id="volley" type="button">Залп</button>
+    <button id="rebuild" type="button">Пересобрать</button>
+    <button id="slow" type="button" aria-pressed="false">Замедлить</button>
+  </div>
+</div>
+<p class="throw" id="throw" aria-live="polite"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M5 9.5c4 1.6 10 1.6 14 0M5 14.5c4-1.6 10-1.6 14 0" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>Кинуть мяч</p>
+<p class="stat" aria-live="off">Тел в сцене: <b id="count">0</b> · ядер: <b id="balls">0</b></p>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/",
+  "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/dist/cannon-es.js"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import * as CANNON from 'cannon-es';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const qs = new URLSearchParams(location.search);
+const card = qs.has('card');
+if (card) document.body.classList.add('card');
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const small = Math.min(innerWidth, innerHeight) < 600 || card;
+
+// ---------- графика ----------
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('c'), antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, small ? 1.5 : 2));
+renderer.shadowMap.enabled = !card;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#0a1430');
+scene.fog = new THREE.Fog('#0a1430', 40, 90);
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+camera.position.set(4, 12, 24);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 2, -3);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.48;
+controls.minDistance = 8; controls.maxDistance = 50;
+// в карточке камерой не управляем; OrbitControls ставит холсту touch-action: none, возвращаем прокрутку страницы пальцем
+if (card) { controls.enabled = false; renderer.domElement.style.touchAction = 'pan-y'; }
+
+scene.add(new THREE.HemisphereLight('#bcd2ff', '#2a1a10', 1.1));
+const sun = new THREE.DirectionalLight('#ffe7bf', 2.4);
+sun.position.set(12, 22, 8);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -20, right: 20, top: 20, bottom: -20, near: 1, far: 60 });
+scene.add(sun);
+const ground = new THREE.Mesh(new THREE.CircleGeometry(60, 64), new THREE.MeshStandardMaterial({ color: '#13224d', roughness: 0.95 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const grid = new THREE.GridHelper(60, 60, '#2a3d78', '#1a2a5c'); grid.position.y = 0.01; scene.add(grid);
+
+// ---------- физика ----------
+const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
+world.broadphase = new CANNON.SAPBroadphase(world);
+world.allowSleep = true;
+world.solver.iterations = 12;
+const brickMat = new CANNON.Material('brick'), ballMat = new CANNON.Material('ball');
+world.addContactMaterial(new CANNON.ContactMaterial(brickMat, brickMat, { friction: 0.5, restitution: 0.05 }));
+world.addContactMaterial(new CANNON.ContactMaterial(ballMat, brickMat, { friction: 0.3, restitution: 0.2 }));
+const floor = new CANNON.Body({ mass: 0, shape: new CANNON.Plane(), material: brickMat });
+floor.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+world.addBody(floor);
+
+// кирпичи — один InstancedMesh, у каждого экземпляра своё тело
+const BW = 0.9, BH = 0.45, BD = 0.45;
+const MAX = card ? 260 : (small ? 420 : 760);
+const brickGeo = new THREE.BoxGeometry(BW, BH, BD);
+const brickMesh = new THREE.InstancedMesh(brickGeo, new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0.05 }), MAX);
+brickMesh.castShadow = brickMesh.receiveShadow = true;
+brickMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+scene.add(brickMesh);
+const palette = ['#e8b64a', '#f4d48a', '#3cc6dc', '#e65f43', '#f4ecdf', '#c9862e'].map(c => new THREE.Color(c));
+const bricks = [];
+const brickShape = new CANNON.Box(new CANNON.Vec3(BW / 2, BH / 2, BD / 2));
+const addBrick = (x, y, z, rotY, colorIdx) => {
+  if (bricks.length >= MAX) return;
+  const b = new CANNON.Body({ mass: 1, shape: brickShape, material: brickMat, sleepSpeedLimit: 0.12, sleepTimeLimit: 1.6 });
+  b.position.set(x, y, z);
+  b.quaternion.setFromEuler(0, rotY, 0);
+  b.sleep();
+  world.addBody(b);
+  brickMesh.setColorAt(bricks.length, palette[colorIdx % palette.length]);
+  bricks.push(b);
+};
+
+// круглая башня-кереге, пирамида и стена
+const build = () => {
+  bricks.forEach(b => world.removeBody(b));
+  bricks.length = 0;
+  balls.forEach(o => { world.removeBody(o.body); scene.remove(o.mesh); });
+  balls.length = 0;
+  const ring = (cx, cz, R, layers, col) => {
+    const n = Math.floor((2 * Math.PI * R) / (BW * 1.02));
+    for (let l = 0; l < layers; l++) for (let i = 0; i < n; i++) {
+      const a = ((i + (l % 2) * 0.5) / n) * Math.PI * 2;
+      addBrick(cx + Math.cos(a) * R, BH / 2 + l * BH, cz + Math.sin(a) * R, -a + Math.PI / 2, col + (l % 3 === 0 ? 1 : 0));
+    }
+  };
+  ring(0, 0, 3.2, card ? 9 : 12, 0);
+  if (!card) {
+    // пирамида
+    const rows = small ? 8 : 11;
+    for (let r = 0; r < rows; r++) for (let i = 0; i < rows - r; i++) addBrick(-9 + (i - (rows - r - 1) / 2) * BW * 1.01, BH / 2 + r * BH, -6, 0, 2 + (r % 2));
+  }
+  brickMesh.count = bricks.length;
+  if (brickMesh.instanceColor) brickMesh.instanceColor.needsUpdate = true;
+  countEl.textContent = bricks.length;
+};
+
+// ядра
+const balls = [];
+const ballGeo = new THREE.SphereGeometry(0.36, 20, 14), ballMatV = new THREE.MeshStandardMaterial({ color: '#1b1b1b', metalness: 0.6, roughness: 0.35 });
+const ballShape = new CANNON.Sphere(0.36);
+const wakeAll = () => { for (let i = 0; i < bricks.length; i++) bricks[i].wakeUp(); };
+const fire = (origin, dir) => {
+  const body = new CANNON.Body({ mass: 9, shape: ballShape, material: ballMat });
+  body.position.set(origin.x, origin.y, origin.z);
+  body.velocity.set(dir.x * 34, dir.y * 34, dir.z * 34);
+  world.addBody(body);
+  body.addEventListener('collide', () => { if (!body.userData) { body.userData = 1; wakeAll(); } });
+  const mesh = new THREE.Mesh(ballGeo, ballMatV); mesh.castShadow = true; scene.add(mesh);
+  balls.push({ body, mesh, t: 0 });
+  if (balls.length > 24) { const o = balls.shift(); world.removeBody(o.body); scene.remove(o.mesh); }
+  ballsEl.textContent = balls.length;
+};
+
+// ---------- захват мышью: невидимая «рука» тянет кирпич за точку, где за него взялись ----------
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+const hand = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC });
+hand.collisionFilterGroup = 0; hand.collisionFilterMask = 0;
+world.addBody(hand);
+let grab = null, dragPlane = new THREE.Plane(), downAt = null;
+const setNdc = e => { const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); };
+renderer.domElement.addEventListener('pointerdown', e => {
+  downAt = { x: e.clientX, y: e.clientY };
+  if (card) return; // в карточке кирпичи не хватаем, только бросаем
+  setNdc(e);
+  const hit = ray.intersectObject(brickMesh)[0];
+  if (!hit) return;
+  const body = bricks[hit.instanceId];
+  wakeAll();
+  hand.position.set(hit.point.x, hit.point.y, hit.point.z);
+  const local = body.pointToLocalFrame(new CANNON.Vec3(hit.point.x, hit.point.y, hit.point.z));
+  const c = new CANNON.PointToPointConstraint(body, local, hand, new CANNON.Vec3(0, 0, 0), 40);
+  world.addConstraint(c);
+  grab = { c, body };
+  dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new THREE.Vector3()).negate(), hit.point);
+  controls.enabled = false;
+  renderer.domElement.setPointerCapture(e.pointerId);
+});
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!grab) return;
+  setNdc(e);
+  const p = new THREE.Vector3();
+  if (ray.ray.intersectPlane(dragPlane, p)) hand.position.set(p.x, Math.max(0.2, p.y), p.z);
+});
+const release = e => {
+  if (grab) { world.removeConstraint(grab.c); grab = null; controls.enabled = !card; return; }
+  // короткое нажатие на пустое место — выстрел ядром туда, куда показали
+  if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 6) {
+    setNdc(e);
+    fire(camera.position.clone().add(ray.ray.direction.clone().multiplyScalar(1.5)), ray.ray.direction);
+    thrown();
+  }
+  downAt = null;
+};
+renderer.domElement.addEventListener('pointerup', release);
+renderer.domElement.addEventListener('pointercancel', () => { if (grab) { world.removeConstraint(grab.c); grab = null; } controls.enabled = !card; downAt = null; });
+
+// надпись «Кинуть мяч» пропадает после первого броска и возвращается, когда башни собраны заново
+const hint = document.getElementById('throw');
+let lastThrow = -1, cardT = 0;
+const thrown = () => { hint.classList.add('gone'); lastThrow = cardT; };
+const volley = () => {
+  thrown();
+  for (let i = 0; i < 6; i++) setTimeout(() => {
+    const target = new THREE.Vector3((Math.random() - 0.5) * 8, 1 + Math.random() * 4, (Math.random() - 0.5) * 6);
+    const from = camera.position.clone();
+    fire(from, target.sub(from).normalize());
+  }, i * 140);
+};
+const countEl = document.getElementById('count'), ballsEl = document.getElementById('balls');
+document.getElementById('volley').addEventListener('click', volley);
+document.getElementById('rebuild').addEventListener('click', () => { build(); hint.classList.remove('gone'); });
+let slow = false;
+document.getElementById('slow').addEventListener('click', e => { slow = !slow; e.currentTarget.setAttribute('aria-pressed', String(slow)); e.currentTarget.textContent = slow ? 'Обычная скорость' : 'Замедлить'; });
+addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); volley(); } });
+
+build();
+
+// ---------- кадр ----------
+let touched = false;
+controls.addEventListener('start', () => { touched = true; });
+const resize = () => {
+  renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  // на телефоне отходим дальше, чтобы все башни влезли
+  if (!card && !touched) camera.position.set(4, 12, 24).sub(controls.target).multiplyScalar(Math.max(1, 1.25 / camera.aspect)).add(controls.target);
+};
+addEventListener('resize', resize); resize();
+let active = true;
+addEventListener('message', ev => { if (ev.data && typeof ev.data.active === 'boolean') active = ev.data.active; });
+const m4 = new THREE.Matrix4(), pos = new THREE.Vector3(), quat = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1);
+let last = performance.now();
+renderer.setAnimationLoop(now => {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (!active) return;
+  if (card) {
+    // в карточке камера медленно облетает башни, а мяч бросает сам посетитель
+    cardT += dt;
+    const a = cardT * 0.15;
+    camera.position.set(Math.sin(a) * 13, 7, Math.cos(a) * 13);
+    camera.lookAt(0, 1.8, 0);
+    // через 12 секунд после последнего броска башни собираются заново, и надпись возвращается
+    if (lastThrow >= 0 && cardT - lastThrow > 12) { lastThrow = -1; build(); hint.classList.remove('gone'); }
+  } else controls.update();
+  if (!reduce) world.step(1 / 60, dt * (slow ? 0.25 : 1), 3);
+  for (let i = 0; i < bricks.length; i++) {
+    const b = bricks[i];
+    pos.set(b.position.x, b.position.y, b.position.z);
+    quat.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w);
+    brickMesh.setMatrixAt(i, m4.compose(pos, quat, one));
+  }
+  brickMesh.instanceMatrix.needsUpdate = true;
+  brickMesh.computeBoundingSphere();
+  balls.forEach(o => { o.mesh.position.copy(o.body.position); o.mesh.quaternion.copy(o.body.quaternion); });
+  renderer.render(scene, camera);
+});
+</script>
+</body>
+</html>

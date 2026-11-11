@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Механические часы в 3D · Шаңырақ Code</title>
+<meta name="description" content="Интерактивные механические часы на Three.js: корпус, стекло, циферблат и механизм с балансом, анкерным колесом и камнями. Пример проекта учеников Шаңырақ Code.">
+<meta name="theme-color" content="#0a1430">
+<link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tektur:wght@800;900&family=Golos+Text:wght@400;600&display=swap">
+<style>
+  :root { color-scheme: dark; --ink: #fff; --muted: #b4b4b4; --yellow: #ffe927; --bg: #111; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: radial-gradient(ellipse at 50% 40%, #2a2a2a, #0d0d0d 70%); color: var(--ink); font: 400 16px/1.45 "Golos Text", system-ui, sans-serif; overflow: hidden; }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { display: block; outline: none; }
+  .ui { position: fixed; left: 20px; top: 18px; right: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; pointer-events: none; z-index: 5; }
+  .ui > * { pointer-events: auto; }
+  .ui h1 { margin: 0; font: 900 clamp(22px, 3vw, 34px)/1 "Tektur", sans-serif; text-transform: uppercase; }
+  .ui p { margin: 6px 0 0; max-width: 30rem; color: var(--muted); font-size: 14px; }
+  .btn { display: inline-flex; align-items: center; gap: .5rem; min-height: 48px; padding: 0 1.2rem; border: 0; border-radius: 14px; background: var(--yellow); color: #111; font: 800 15px/1 "Tektur", sans-serif; text-transform: uppercase; letter-spacing: .02em; cursor: pointer; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  .btn:active { transform: scale(.97); }
+  .btn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  .hint { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 5; padding: 8px 14px; border-radius: 999px; background: rgb(0 0 0 / .55); color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .tip { position: fixed; z-index: 6; max-width: 260px; padding: 10px 12px; border-radius: 12px; background: rgb(17 17 17 / .92); box-shadow: 0 10px 30px rgb(0 0 0 / .5); pointer-events: none; opacity: 0; transform: translateY(6px); transition: opacity 140ms ease, transform 180ms cubic-bezier(.23, 1, .32, 1); }
+  .tip.on { opacity: 1; transform: none; }
+  .tip b { display: block; color: var(--yellow); font: 800 14px/1.2 "Tektur", sans-serif; text-transform: uppercase; }
+  .tip span { display: block; margin-top: 4px; font-size: 13px; color: #e6e6e6; }
+  .label { padding: 3px 8px; border-radius: 6px; background: rgb(17 17 17 / .78); color: #fff; font: 600 12px/1.2 "Golos Text", sans-serif; white-space: nowrap; opacity: 0; transition: opacity 300ms ease; pointer-events: none; }
+  .exploded .label { opacity: 1; }
+  .label::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--yellow); vertical-align: 1px; }
+  body.embed .ui p { display: none; }
+  /* на главной часы ведёт прокрутка страницы: свои кнопки и подсказки прячем */
+  body.scroll .ui, body.scroll .hint, body.scroll .tip { display: none; }
+  body.card .label { display: none; }
+  body.card { background: transparent; }
+  @media (max-width: 600px) { .ui { flex-direction: column; } .hint { font-size: 12px; } }
+</style>
+</head>
+<body>
+<div id="stage" aria-label="Интерактивные механические часы: перетаскивай, чтобы повернуть, колесо мыши или щипок, чтобы приблизить" role="img"></div>
+<div class="ui">
+  <div>
+    <h1>Механические часы</h1>
+    <p>Всё нарисовано кодом на Three.js, без единой картинки. Наведи на деталь, чтобы узнать, что она делает.</p>
+  </div>
+  <button class="btn" id="explode" type="button" aria-pressed="false">Разобрать</button>
+</div>
+<div class="hint" id="hint">Тяни, чтобы повернуть · колесо, чтобы приблизить</div>
+<div class="tip" id="tip" role="status"><b></b><span></span></div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const embed = new URLSearchParams(location.search).has('embed');
+if (embed) document.body.classList.add('embed');
+// ?scroll: разборкой управляет страница-родитель через postMessage({ explode: 0..1 })
+// ?card: маленькое окно в карточке на главной — часы сами вращаются и разбираются по кругу
+const cardMode = new URLSearchParams(location.search).has('card');
+if (cardMode) { document.body.classList.add('card'); document.documentElement.style.background = 'transparent'; }
+const scrollMode = cardMode || new URLSearchParams(location.search).has('scroll');
+if (scrollMode) document.body.classList.add('scroll');
+let ext = 0, extS = 0, active = true, hold = null;
+addEventListener('message', ev => {
+  const d = ev.data;
+  if (!d || typeof d !== 'object') return;
+  if (typeof d.explode === 'number') ext = Math.max(0, Math.min(1, d.explode));
+  if (typeof d.active === 'boolean') active = d.active;
+  if ('hold' in d) hold = typeof d.hold === 'number' ? d.hold : null;
+});
+const stage = document.getElementById('stage');
+
+// ---------- сцена, свет, отражения ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+stage.appendChild(renderer.domElement);
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.domElement.style.cssText = 'position:fixed;inset:0;pointer-events:none';
+stage.appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 200);
+camera.position.set(4.2, 3.2, 9.5);
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.minDistance = 3.2;
+controls.maxDistance = 80;
+// во встроенном окне колесо мыши листает страницу, а не приближает часы
+if (embed) { controls.enableZoom = false; document.getElementById('hint').textContent = 'Тяни, чтобы повернуть · на весь экран можно приблизить'; }
+controls.target.set(0, 0, -1.4);
+let userMoved = false;
+controls.addEventListener('start', () => { userMoved = true; });
+const homeDir = new THREE.Vector3(4.2, 3.2, 10.1).normalize();
+const sideDir = new THREE.Vector3(10, 4.2, -3.6).normalize();
+controls.target.set(0, 0, -0.6);
+const key = new THREE.DirectionalLight(0xfff2dc, 2.2);
+key.position.set(5, 7, 8);
+scene.add(key, new THREE.HemisphereLight(0xffffff, 0x222222, 0.5));
+
+// ---------- материалы ----------
+const M = {
+  gold: () => new THREE.MeshPhysicalMaterial({ color: 0xd8a64a, metalness: 1, roughness: 0.22, clearcoat: 0.4 }),
+  roseGold: () => new THREE.MeshPhysicalMaterial({ color: 0xd99a6c, metalness: 1, roughness: 0.3 }),
+  brass: () => new THREE.MeshStandardMaterial({ color: 0xc9a25a, metalness: 1, roughness: 0.38 }),
+  steel: () => new THREE.MeshStandardMaterial({ color: 0xc9ced6, metalness: 1, roughness: 0.25 }),
+  blued: () => new THREE.MeshStandardMaterial({ color: 0x2b4aa8, metalness: 0.9, roughness: 0.3 }),
+  plate: () => new THREE.MeshStandardMaterial({ color: 0xb9bcc2, metalness: 0.9, roughness: 0.45 }),
+  ruby: () => new THREE.MeshPhysicalMaterial({ color: 0xd1103a, metalness: 0, roughness: 0.05, transmission: 0.35, thickness: 0.2, clearcoat: 1, emissive: 0x3a0010 }),
+  dial: () => new THREE.MeshStandardMaterial({ color: 0xf1ede4, roughness: 0.6, metalness: 0 }),
+  glass: () => new THREE.MeshPhysicalMaterial({ color: 0xffffff, metalness: 0, roughness: 0.02, transmission: 1, thickness: 0.15, ior: 1.52, transparent: true, opacity: 1, clearcoat: 1, side: THREE.DoubleSide }),
+};
+
+// ---------- части: у каждой имя, одна строка о назначении, слой и сдвиг при разборке ----------
+const parts = [];
+const watch = new THREE.Group();
+scene.add(watch);
+const part = (name, info, obj, explodeZ, labelPos = [0, 0, 0]) => {
+  obj.traverse(o => { if (o.isMesh) { o.userData.part = name; o.castShadow = false; } });
+  obj.userData.home = obj.position.clone();
+  obj.userData.exZ = explodeZ;
+  watch.add(obj);
+  const div = document.createElement('div');
+  div.className = 'label';
+  div.textContent = name;
+  const lab = new CSS2DObject(div);
+  lab.position.set(...labelPos);
+  obj.add(lab);
+  parts.push({ name, info, obj });
+  return obj;
+};
+
+// зубчатое колесо: обод с зубьями, спицы и ступица
+const gearShape = (r, teeth, depth = 0.06, spokes = 4, hole = 0.25) => {
+  const s = new THREE.Shape();
+  const N = teeth * 4;
+  for (let i = 0; i <= N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    const phase = i % 4;
+    const rr = phase === 1 || phase === 2 ? r : r - depth;
+    const x = Math.cos(a) * rr, y = Math.sin(a) * rr;
+    i ? s.lineTo(x, y) : s.moveTo(x, y);
+  }
+  // окна между спицами
+  const rin = r * 0.78, rhub = r * hole;
+  for (let k = 0; k < spokes; k++) {
+    const a0 = (k / spokes) * Math.PI * 2 + 0.22, a1 = ((k + 1) / spokes) * Math.PI * 2 - 0.22;
+    const h = new THREE.Path();
+    h.absarc(0, 0, rin, a0, a1, false);
+    h.absarc(0, 0, rhub, a1, a0, true);
+    h.closePath();
+    s.holes.push(h);
+  }
+  return s;
+};
+const gear = (r, teeth, thick, mat, spokes = 4) => {
+  const g = new THREE.ExtrudeGeometry(gearShape(r, teeth, Math.min(0.08, r * 0.08), spokes), { depth: thick, bevelEnabled: false, curveSegments: 6 });
+  g.translate(0, 0, -thick / 2);
+  return new THREE.Mesh(g, mat);
+};
+const pinion = (r, leaves, len, mat) => {
+  const g = new THREE.ExtrudeGeometry(gearShape(r, leaves, r * 0.35, 0, 0.0), { depth: len, bevelEnabled: false, curveSegments: 4 });
+  g.translate(0, 0, -len / 2);
+  return new THREE.Mesh(g, mat);
+};
+const jewel = (x, y, z) => {
+  const j = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.03, 20), M.ruby());
+  j.rotation.x = Math.PI / 2;
+  j.position.set(x, y, z);
+  return j;
+};
+
+// ---------- корпус ----------
+const caseG = new THREE.Group();
+{
+  const prof = [[1.78, -0.32], [2.0, -0.28], [2.12, -0.12], [2.14, 0.08], [2.06, 0.24], [1.92, 0.3], [1.82, 0.3], [1.82, -0.32]].map(([x, y]) => new THREE.Vector2(x, y));
+  const ring = new THREE.Mesh(new THREE.LatheGeometry(prof, 160), M.gold());
+  ring.rotation.x = Math.PI / 2;
+  caseG.add(ring);
+  // ушки для ремешка
+  // ушки для ремешка: скруглённые бруски, прижатые к ободу
+  const lugGeo = new THREE.CapsuleGeometry(0.13, 0.42, 6, 16);
+  [[-0.78, 1], [0.78, 1], [-0.78, -1], [0.78, -1]].forEach(([x, sy]) => {
+    const lug = new THREE.Mesh(lugGeo, caseG.children[0].material);
+    lug.position.set(x, sy * 2.12, -0.06);
+    lug.scale.set(1, 1, 1.25);
+    caseG.add(lug);
+  });
+  // заводная головка с насечкой
+  const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.3, 28), caseG.children[0].material);
+  crown.rotation.z = Math.PI / 2;
+  crown.position.set(2.3, 0, 0);
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.25, 12), M.steel());
+  stem.rotation.z = Math.PI / 2;
+  stem.position.set(2.12, 0, 0);
+  caseG.add(crown, stem);
+}
+part('Корпус', 'Золотой корпус защищает механизм от пыли и ударов; головка справа заводит пружину.', caseG, 0, [0, 2.4, 0]);
+
+// стекло сверху и прозрачная задняя крышка
+const crystal = new THREE.Mesh(new THREE.SphereGeometry(4.6, 96, 16, 0, Math.PI * 2, 0, 0.42), M.glass());
+crystal.rotation.x = Math.PI / 2;
+crystal.position.z = 0.3 - 4.6 * Math.cos(0.42) + 0.0;
+const crystalG = new THREE.Group();
+crystalG.add(crystal);
+crystalG.position.z = 0;
+part('Сапфировое стекло', 'Прозрачная выпуклая крышка: через неё видно циферблат, а пыль и вода не проходят.', crystalG, 2.8, [0, 1.6, 0.45]);
+
+// ---------- циферблат ----------
+const dialTex = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 1024;
+  const g = c.getContext('2d');
+  g.fillStyle = '#f1ede4'; g.fillRect(0, 0, 1024, 1024);
+  g.translate(512, 512);
+  for (let i = 0; i < 60; i++) {
+    g.save(); g.rotate((i / 60) * Math.PI * 2);
+    g.fillStyle = '#2a2a2a';
+    if (i % 5) g.fillRect(-2, -470, 4, 24); else g.fillRect(-7, -472, 14, 54);
+    g.restore();
+  }
+  g.fillStyle = '#1b1b1b'; g.font = '700 74px Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  ['XII', 'III', 'VI', 'IX'].forEach((t, i) => { const a = (i / 4) * Math.PI * 2 - Math.PI / 2; g.fillText(t, Math.cos(a) * 345, Math.sin(a) * 345); });
+  g.font = '600 34px Georgia, serif'; g.fillStyle = '#5a5a5a'; g.fillText('ШАҢЫРАҚ', 0, -170);
+  g.font = '500 22px Georgia, serif'; g.fillText('MECHANICAL', 0, 190);
+  // малая секундная шкала внизу
+  g.strokeStyle = '#8a8a8a'; g.lineWidth = 3; g.beginPath(); g.arc(0, 250, 95, 0, Math.PI * 2); g.stroke();
+  for (let i = 0; i < 12; i++) { g.save(); g.translate(0, 250); g.rotate((i / 12) * Math.PI * 2); g.fillStyle = '#555'; g.fillRect(-2, -92, 4, 16); g.restore(); }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+})();
+const dial = new THREE.Mesh(new THREE.CircleGeometry(1.8, 128), new THREE.MeshStandardMaterial({ map: dialTex, roughness: 0.55, side: THREE.DoubleSide }));
+dial.position.z = 0.1;
+const dialG = new THREE.Group();
+dialG.add(dial);
+part('Циферблат', 'Шкала с часовыми метками; малая шкала внизу показывает секунды.', dialG, 1.5, [1.5, -1.2, 0.12]);
+
+// ---------- стрелки ----------
+const hand = (len, w, mat, tail = 0.15) => {
+  const s = new THREE.Shape();
+  s.moveTo(-w / 2, -tail); s.lineTo(w / 2, -tail); s.lineTo(w * 0.28, len); s.lineTo(0, len + w * 0.6); s.lineTo(-w * 0.28, len); s.closePath();
+  const g = new THREE.ExtrudeGeometry(s, { depth: 0.02, bevelEnabled: false });
+  const m = new THREE.Mesh(g, mat);
+  return m;
+};
+const handsG = new THREE.Group();
+const hourH = hand(1.0, 0.11, M.blued()); hourH.position.z = 0.14;
+const minH = hand(1.5, 0.08, M.blued()); minH.position.z = 0.17;
+const secPivot = new THREE.Group(); secPivot.position.set(0, -0.488, 0.15);
+const secH = hand(0.26, 0.025, new THREE.MeshStandardMaterial({ color: 0xc81e1e, roughness: 0.4 }), 0.06);
+secPivot.add(secH);
+const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.05, 24), M.blued()); cap.rotation.x = Math.PI / 2; cap.position.z = 0.2;
+handsG.add(hourH, minH, secPivot, cap);
+part('Стрелки', 'Часовая и минутная из синёной стали; маленькая красная тикает шесть раз в секунду.', handsG, 2.1, [-0.9, 0.9, 0.2]);
+
+// ---------- механизм ----------
+const Z = { plate: -0.28, train: -0.36, bridge: -0.5 };
+const mainplate = new THREE.Group();
+{
+  const p = new THREE.Mesh(new THREE.CylinderGeometry(1.72, 1.72, 0.12, 96), M.plate());
+  p.rotation.x = Math.PI / 2;
+  mainplate.add(p);
+  // перлаж: круговые точки на платине
+  const dotM = new THREE.MeshStandardMaterial({ color: 0xa9adb4, metalness: 0.9, roughness: 0.55 });
+  const dg = new THREE.CircleGeometry(0.09, 20);
+  for (let r = 0.3; r < 1.6; r += 0.22) for (let a = 0; a < Math.PI * 2; a += 0.22 / r) {
+    const d = new THREE.Mesh(dg, dotM); d.position.set(Math.cos(a) * r, Math.sin(a) * r, -0.061); d.rotation.y = Math.PI; mainplate.add(d);
+  }
+}
+mainplate.position.z = Z.plate;
+part('Платина', 'Основная пластина механизма: на ней закреплены все колёса и мосты.', mainplate, -1.0, [-1.6, -0.8, 0]);
+
+// барабан с заводной пружиной
+const barrelG = new THREE.Group();
+const barrelPos = [-0.62, 0.55];
+{
+  const drum = gear(0.62, 60, 0.18, M.brass(), 0);
+  barrelG.add(drum);
+  // спираль пружины на крышке барабана
+  const pts = [];
+  for (let i = 0; i <= 420; i++) { const t = i / 420, a = t * Math.PI * 2 * 7, r = 0.12 + t * 0.42; pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, -0.1)); }
+  const spring = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 600, 0.012, 6, false), M.steel());
+  barrelG.add(spring);
+  barrelG.add(jewel(0, 0, -0.12));
+}
+barrelG.position.set(...barrelPos, Z.train);
+part('Барабан и заводная пружина', 'Внутри свёрнута стальная пружина: она хранит энергию на 40 часов и медленно раскручивается.', barrelG, -1.8, [-0.6, 1.25, -0.1]);
+
+// колёсная передача: центральное, промежуточное и секундное колёса
+const trainG = new THREE.Group();
+const centerW = new THREE.Group(); centerW.add(gear(0.5, 64, 0.06, M.brass()), pinion(0.11, 10, 0.2, M.steel()), jewel(0, 0, -0.09)); centerW.position.set(0, 0, 0);
+const thirdW = new THREE.Group(); thirdW.add(gear(0.4, 60, 0.06, M.brass()), pinion(0.08, 8, 0.2, M.steel()), jewel(0, 0, -0.09)); thirdW.position.set(0.62, -0.18, 0);
+const fourthW = new THREE.Group(); fourthW.add(gear(0.36, 56, 0.06, M.brass()), pinion(0.07, 8, 0.2, M.steel()), jewel(0, 0, -0.09)); fourthW.position.set(0, -0.488, 0);
+trainG.add(centerW, thirdW, fourthW);
+trainG.position.z = Z.train - 0.04;
+part('Колёсная передача', 'Цепочка колёс передаёт силу пружины и делит её: одно колесо — минуты, другое — секунды.', trainG, -2.5, [0.9, 0.2, -0.1]);
+
+// анкерное колесо с крючковатыми зубьями
+const escapeG = new THREE.Group();
+{
+  const s = new THREE.Shape(), T = 15, R = 0.3;
+  for (let i = 0; i < T; i++) {
+    const a0 = (i / T) * Math.PI * 2, a1 = a0 + (Math.PI * 2) / T * 0.82, a2 = a0 + (Math.PI * 2) / T;
+    const p = (a, r) => [Math.cos(a) * r, Math.sin(a) * r];
+    const [x0, y0] = p(a0, R * 0.72), [x1, y1] = p(a1, R), [x2, y2] = p(a2, R * 0.72);
+    i ? s.lineTo(x0, y0) : s.moveTo(x0, y0); s.lineTo(x1, y1); s.lineTo(x2, y2);
+  }
+  const h = new THREE.Path(); h.absarc(0, 0, 0.13, 0, Math.PI * 2, true); s.holes.push(h);
+  const g = new THREE.ExtrudeGeometry(s, { depth: 0.05, bevelEnabled: false }); g.translate(0, 0, -0.025);
+  const wheel = new THREE.Mesh(g, M.steel());
+  escapeG.add(wheel, pinion(0.06, 7, 0.18, M.steel()), jewel(0, 0, -0.09));
+}
+escapeG.position.set(0.72, -0.82, Z.train - 0.06);
+part('Анкерное колесо', 'Отпускает передачу по одному зубу за удар: именно оно делает «тик-так».', escapeG, -3.1, [1.15, -0.9, -0.1]);
+
+// анкерная вилка с двумя палетами-камнями
+const forkG = new THREE.Group();
+const forkPivot = new THREE.Group();
+{
+  const body = new THREE.Shape();
+  body.moveTo(-0.34, 0.06); body.lineTo(0.34, 0.06); body.lineTo(0.38, -0.02); body.lineTo(0.05, -0.03); body.lineTo(0.03, -0.62); body.lineTo(-0.03, -0.62); body.lineTo(-0.05, -0.03); body.lineTo(-0.38, -0.02); body.closePath();
+  const g = new THREE.ExtrudeGeometry(body, { depth: 0.04, bevelEnabled: false }); g.translate(0, 0, -0.02);
+  forkPivot.add(new THREE.Mesh(g, M.steel()));
+  [-0.33, 0.33].forEach(x => { const pal = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.12, 0.05), M.ruby()); pal.position.set(x, 0.1, 0); forkPivot.add(pal); });
+  forkPivot.add(jewel(0, 0, -0.04));
+}
+forkG.add(forkPivot);
+forkG.position.set(0.72, -0.48, Z.train - 0.12);
+forkPivot.rotation.z = Math.PI;
+part('Анкерная вилка', 'Качается в такт балансу и по очереди цепляет зубья анкерного колеса своими рубиновыми палетами.', forkG, -3.6, [0.25, -0.2, -0.1]);
+
+// баланс с винтами и дышащий волосок
+const balanceG = new THREE.Group();
+const balWheel = new THREE.Group();
+const hairspring = new THREE.Group();
+const balPos = [0.72, -1.38];
+{
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.035, 12, 96), M.roseGold());
+  balWheel.add(rim);
+  for (let k = 0; k < 3; k++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.84, 0.03), rim.material); sp.rotation.z = (k / 3) * Math.PI; balWheel.add(sp); }
+  for (let k = 0; k < 12; k++) { const a = (k / 12) * Math.PI * 2; const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.07, 10), M.gold()); sc.rotation.z = a; sc.position.set(Math.cos(a) * 0.46, Math.sin(a) * 0.46, 0); sc.rotation.z = a + Math.PI / 2; balWheel.add(sc); }
+  balWheel.add(jewel(0, 0, 0.04), jewel(0, 0, -0.04));
+  const pts = [];
+  for (let i = 0; i <= 300; i++) { const t = i / 300, a = t * Math.PI * 2 * 9, r = 0.06 + t * 0.28; pts.push(new THREE.Vector3(Math.cos(a) * r, Math.sin(a) * r, 0)); }
+  hairspring.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 500, 0.006, 5, false), M.blued()));
+  hairspring.position.z = -0.06;
+  balanceG.add(balWheel, hairspring);
+}
+balanceG.position.set(...balPos, Z.train - 0.12);
+part('Баланс и волосок', 'Сердце часов: колесо качается туда-обратно три раза в секунду, а спиральный волосок возвращает его назад.', balanceG, -4.3, [0.72, -0.85, -0.1]);
+
+// мосты
+const bridgesG = new THREE.Group();
+{
+  const plateM = M.plate();
+  const bridge = (pts, depth = 0.06) => { const s = new THREE.Shape(); pts.forEach(([x, y], i) => i ? s.lineTo(x, y) : s.moveTo(x, y)); s.closePath(); const g = new THREE.ExtrudeGeometry(s, { depth, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 2 }); g.translate(0, 0, -depth / 2); return new THREE.Mesh(g, plateM); };
+  bridgesG.add(bridge([[-1.3, 0.9], [-0.2, 1.25], [0.25, 0.7], [-0.3, 0.2], [-1.4, 0.3]]));
+  bridgesG.add(bridge([[0.1, 0.25], [1.0, 0.05], [1.05, -0.55], [0.3, -0.65], [-0.05, -0.2]]));
+  bridgesG.add(bridge([[0.4, -1.1], [1.55, -0.6], [1.65, -0.85], [0.75, -1.45]]));
+  [[-0.62, 0.55], [0.62, -0.18], [0, -0.488], [0.72, -0.82], [0.72, -1.38]].forEach(([x, y]) => bridgesG.add(jewel(x, y, -0.05)));
+  // винты
+  const screwM = M.blued();
+  [[-1.1, 0.75], [0.05, 0.95], [0.85, -0.3], [1.3, -0.7]].forEach(([x, y]) => { const s = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.04, 16), screwM); s.rotation.x = Math.PI / 2; s.position.set(x, y, -0.06); bridgesG.add(s); });
+}
+bridgesG.position.z = Z.bridge;
+part('Мосты и камни', 'Мосты держат оси колёс сверху; красные камни-подшипники почти не стираются и уменьшают трение.', bridgesG, -5.0, [-1.2, 1.05, -0.1]);
+
+const backG = new THREE.Group();
+{
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.86, 0.08, 12, 128), M.gold());
+  const glass = new THREE.Mesh(new THREE.CircleGeometry(1.84, 96), M.glass());
+  glass.rotation.y = Math.PI;
+  backG.add(ring, glass);
+}
+backG.position.z = -0.62;
+part('Задняя крышка', 'Прозрачное окно сзади: через него можно смотреть, как работает механизм.', backG, -5.8, [0, -2.0, 0]);
+
+// ---------- разборка ----------
+const easeIO = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+let exploded = false;
+const btn = document.getElementById('explode');
+btn.addEventListener('click', () => {
+  exploded = !exploded;
+  btn.textContent = exploded ? 'Собрать' : 'Разобрать';
+  btn.setAttribute('aria-pressed', String(exploded));
+  document.body.classList.toggle('exploded', exploded);
+  anim = { from: anim ? currentE() : 0, to: exploded ? 1 : 0, t0: performance.now() };
+  userMoved = false;
+});
+// разборка идёт по времени, а не по кадрам: 1,2 секунды на любом устройстве
+let anim = null;
+const currentE = () => { if (!anim) return 0; const k = reduce ? 1 : Math.min(1, (performance.now() - anim.t0) / 1200); return anim.from + (anim.to - anim.from) * easeIO(k); };
+// ?explode открывает часы сразу в разобранном виде
+if (new URLSearchParams(location.search).has('explode')) btn.click();
+
+// ---------- наведение: деталь подсвечивается и рассказывает о себе ----------
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+const tip = document.getElementById('tip');
+let hovered = null;
+const setGlow = (name, on) => parts.find(p => p.name === name)?.obj.traverse(o => {
+  if (!o.isMesh || !o.material.emissive) return;
+  if (!o.userData.baseEmissive) o.userData.baseEmissive = o.material.emissive.clone();
+  if (on) o.material.emissive.setRGB(0.55, 0.42, 0.08); else o.material.emissive.copy(o.userData.baseEmissive);
+});
+// у деталей общие материалы, поэтому каждой копируем свои, чтобы светилась только она
+parts.forEach(p => p.obj.traverse(o => { if (o.isMesh) o.material = o.material.clone(); }));
+renderer.domElement.addEventListener('pointermove', e => {
+  mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObjects(watch.children, true).find(h => h.object.userData.part && h.object.material.transmission !== 1);
+  const name = hit ? hit.object.userData.part : null;
+  if (name !== hovered) {
+    if (hovered) setGlow(hovered, false);
+    hovered = name;
+    if (name) setGlow(name, true);
+  }
+  if (name) {
+    const p = parts.find(q => q.name === name);
+    tip.querySelector('b').textContent = p.name;
+    tip.querySelector('span').textContent = p.info;
+    tip.style.left = Math.min(e.clientX + 16, innerWidth - 280) + 'px';
+    tip.style.top = Math.min(e.clientY + 16, innerHeight - 110) + 'px';
+    tip.classList.add('on');
+    renderer.domElement.style.cursor = 'help';
+  } else { tip.classList.remove('on'); renderer.domElement.style.cursor = 'grab'; }
+});
+renderer.domElement.addEventListener('pointerleave', () => { if (hovered) setGlow(hovered, false); hovered = null; tip.classList.remove('on'); });
+
+// ---------- ход механизма ----------
+const BPS = 6; // 21 600 полуколебаний в час: шесть ударов в секунду
+const clock = new THREE.Timer();
+clock.connect(document);
+let beatShown = -1, beatAt = 0;
+const resize = () => {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h);
+  labelRenderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  // на узком экране часы целиком: камера отходит, пока посетитель сам её не трогал
+  if (!scrollMode && !userMoved && !anim) camera.position.sub(controls.target).setLength(10.8 * Math.max(1, 1.05 / camera.aspect)).add(controls.target);
+};
+addEventListener('resize', resize);
+resize();
+
+renderer.setAnimationLoop(() => {
+  if (!active) return;
+  clock.update();
+  const t = clock.getElapsed();
+  // разборка и сборка плавно, слоями
+  if (cardMode) {
+    // 12 секунд: собраны → разбираются → держим → собираются
+    const ph = (t % 12) / 12;
+    const sm = x => x * x * (3 - 2 * x);
+    ext = hold !== null ? hold : reduce ? 0.6 : ph < 0.15 ? 0 : ph < 0.42 ? sm((ph - 0.15) / 0.27) : ph < 0.65 ? 1 : ph < 0.92 ? 1 - sm((ph - 0.65) / 0.27) : 0;
+  }
+  if (scrollMode) extS += (ext - extS) * (reduce ? 1 : 0.12);
+  const e = scrollMode ? extS : currentE();
+  if (scrollMode) document.body.classList.toggle('exploded', e > 0.6);
+  // слои расходятся по диагонали: то, что сверху, уходит вверх и вперёд, механизм — вниз и назад
+  parts.forEach(p => {
+    const h = p.obj.userData.home, d = p.obj.userData.exZ * e;
+    p.obj.position.set(h.x, h.y, h.z + d * 0.95);
+  });
+  // при разборке камера плавно отходит, чтобы все слои поместились
+  // камера уходит на три четверти сбоку, пока посетитель сам её не повернул
+  if (scrollMode) {
+    // в узком окне телефона отходим дальше, чтобы разобранные слои влезли целиком
+    const fit = Math.max(1, (1.05 + 0.25 * e) / camera.aspect);
+    camera.position.copy(homeDir).lerp(sideDir, e).normalize().multiplyScalar((10.8 + 5 * e) * fit);
+    if (cardMode && !reduce) camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.sin(t * 0.25) * 0.35);
+    camera.position.add(controls.target);
+  } else if (!userMoved && anim && !anim.camDone) {
+    camera.position.copy(homeDir).lerp(sideDir, e).normalize().multiplyScalar((10.8 + 5 * e) * Math.max(1, (1.05 + 0.25 * e) / camera.aspect)).add(controls.target);
+    if (performance.now() - anim.t0 >= 1200) anim.camDone = true;
+  }
+
+  // реальное время на циферблате
+  const now = new Date();
+  const ms = now.getMilliseconds(), s = now.getSeconds(), m = now.getMinutes(), h = now.getHours() % 12;
+  const beat = Math.floor((s * 1000 + ms) / (1000 / BPS));
+  hourH.rotation.z = -((h + m / 60) / 12) * Math.PI * 2;
+  minH.rotation.z = -((m + s / 60) / 60) * Math.PI * 2;
+  secPivot.rotation.z = -(beat / (60 * BPS)) * Math.PI * 2;
+
+  // баланс качается синусом, волосок дышит в такт
+  // 3 полных колебания в секунду = 6 ударов; волосок закручивается и раскручивается вместе с колесом
+  const swing = Math.sin(t * Math.PI * BPS);
+  const theta = (reduce ? 0 : 3.6) * swing;
+  balWheel.rotation.z = theta;
+  hairspring.rotation.z = theta * 0.9;
+  hairspring.scale.setScalar(1 + swing * 0.06);
+
+  // на каждом ударе анкерное колесо быстро отпускает половину зуба, вилка перекидывается
+  const gb = Math.floor(t * BPS);
+  if (gb !== beatShown) { beatShown = gb; beatAt = t; }
+  const k = 1 - Math.pow(1 - Math.min(1, (t - beatAt) * 22), 3);
+  const step = (Math.PI * 2) / 15 / 2;
+  escapeG.rotation.z = reduce ? 0 : -(beatShown + k) * step;
+  forkPivot.rotation.z = Math.PI + (reduce ? 0 : beatShown % 2 ? 0.14 : -0.14);
+  // колёса передачи: секундное — оборот в минуту, остальные медленнее
+  fourthW.rotation.z = secPivot.rotation.z;
+  thirdW.rotation.z = -fourthW.rotation.z * 0.75;
+  centerW.rotation.z = minH.rotation.z;
+  barrelG.rotation.z = -centerW.rotation.z / 8;
+
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+});
+</script>
+</body>
+</html>
